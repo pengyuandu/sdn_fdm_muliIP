@@ -1,0 +1,18 @@
+This version of floodlight controller supports multiple IP at each ship. Therefore, ships could have asymmetric number of connetctions to SATCOMs, thus asymmetric number fo MPTCP subflows. It also fixes a few bugs in the previous controller in order to successfully retrieve the requirements and capacities, and return accurate FDM results.
+
+THe script auto_fullmesh.py automates the following commands:
+	- create n*m ship-to-SATCOM topology, 
+		- n: # of ship, m: # of SATCOM
+		- by default, each ship connects to all m SATCOMs, therefore all the ships have equal number of subflows
+		- No need to configure MPTCP. Just make sure it is enabled, it is using fullmesh path manager, and the parameter of fullmesh should be 1 (as each ship uses m different IPs)
+	- create routing table config files for each ship, and execute the files
+	- ping tests (currently commented)
+	- generate the requirement and capacity input files runconfig.sh and delete.sh
+	- launch concurrent iperf tests from each ship to the destination
+	- after the first iperf test, delete the meter tables, and rerun the test
+	- finally, the script stops at MIninet CLI
+
+There are several pauses between the commands, in order to allow FLoodlight update topology and inputs. The script will output iperf results to testiperf.txt (for dest) and src*.txt (for ships). YOu may check them to see if the throughput is consistent with the requirements.
+
+Set input of the script in the main function. Replace the IP with either "127.0.0.1" or remote IP (also remember to change the address in floodlightdefault.properties). I have left some working input commented for you reference. The current controller can support up to 30 ships, but it requires high computing power. For laptop or desktop, I would recommend testing at most 10 nodes.
+		
