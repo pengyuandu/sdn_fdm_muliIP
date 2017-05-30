@@ -27,7 +27,7 @@ class cd:
         os.chdir(self.savedPath)
 
 
-def WifiNet(n, m, IP, req, cap,ts):
+def WifiNet(n, m, IP, req, cap, mod,ts):
 
     """ Uncomment following lines to add controller """
     # info( '*** Adding controller\n' )
@@ -163,12 +163,23 @@ def WifiNet(n, m, IP, req, cap,ts):
     file.write("#!/bin/bash\n")
     for i in range(1,n+1):
         file.write('curl -X POST -d \'{"cmd":"DELETE","dst-port":'+\
-        '"0","dst-switch":"00:00:00:00:00:00:00:0'+sw_name[i-1]+'","src-switch":'+\
-        '"00:00:00:00:00:00:00:0'+sw_name[i-1]+'","src-port":"0"}\''+\
+        '"0","dst-switch":"00:00:00:00:00:00:00:'+sw_name[i-1]+'","src-switch":'+\
+        '"00:00:00:00:00:00:00:'+sw_name[i-1]+'","src-port":"0"}\''+\
         ' http://'+IP+':8080/wm/fdm/config/json\n')
     file.close()
     
     call(["sudo", "chmod", "777", "delete.sh"])
+    
+    file=open('modify.sh','w')
+    file.write("#!/bin/bash\n")
+    for i in range(1,n+1):
+        file.write('curl -X POST -d \'{"cmd":"MODIFY","dst-port":'+\
+        '"0","dst-switch":"00:00:00:00:00:00:00:'+sw_name[i-1]+'","src-switch":'+\
+        '"00:00:00:00:00:00:00:'+sw_name[i-1]+'","src-port":"0","requirement":"'+str(mod[i-1])+'"}\''+\
+        ' http://'+IP+':8080/wm/fdm/config/json\n')
+    file.close()
+    
+    call(["sudo", "chmod", "777", "modify.sh"])
 	
     info('*** run iperf test')
 
@@ -183,10 +194,14 @@ def WifiNet(n, m, IP, req, cap,ts):
     for i in range(1,n+1):
         src=nodes[hosts[i]]
         info("testing",src.name,"<->",dst.name,'\n')
-        src.cmdPrint('iperf -c 10.0.0.1 -t 50 -i 2 >src'+str(i)+'.txt &')
+        src.cmdPrint('iperf -c 10.0.0.1 -t 100 -i 2 >src'+str(i)+'.txt &')
         time.sleep(0.2)
     
+    time.sleep(30)
+    call("./modify.sh")
     time.sleep(100)
+    
+    '''
     call("./delete.sh")
     time.sleep(10)
     call("./runconfig.sh")
@@ -194,9 +209,9 @@ def WifiNet(n, m, IP, req, cap,ts):
     for i in range(1,n+1):
         src=nodes[hosts[i]]
         info("testing",src.name,"<->",dst.name,'\n')
-        src.cmdPrint('iperf -c 10.0.0.1 -t 50 -i 2 >src'+str(i)+'.txt &')
+        src.cmdPrint('iperf -c 10.0.0.1 -t 10 -i 2 >src'+str(i)+'.txt &')
         time.sleep(0.2)
-    
+    '''
     
     '''
     ports=[]
@@ -220,6 +235,6 @@ def WifiNet(n, m, IP, req, cap,ts):
 if __name__ == '__main__':
     setLogLevel( 'info' )
     #WifiNet(30,3,"131.179.136.83",[2.0]*30,[15.0,25.0,35.0],90)
-    #WifiNet(10,3,"131.179.136.83",[2.0]*10,[15.0,25.0,35.0],60)
-    WifiNet(3,3,"127.0.0.1",[2.0]*3,[5.0]*3,30)
+    #WifiNet(3,3,"131.179.136.83",[2.0]*3,[5,5,5],30)
+    WifiNet(2,2,"131.179.210.194",[2.0]*2,[5.0]*2, [1.0]*2,20)
     #WifiNet(30,3,"127.0.0.1",[2.0]*30,[30,20,30],120)
