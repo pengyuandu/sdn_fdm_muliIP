@@ -11,9 +11,11 @@ THe script auto_fullmesh.py automates the following commands:
 	- launch concurrent iperf tests from each ship to the destination
 	- after the first iperf test, delete the meter tables, and rerun the test
 	- finally, the script stops at MIninet CLI
+	- generate the input update files modify*.sh, in order to refresh req and caps (updated)
 
 There are several pauses between the commands, in order to allow FLoodlight update topology and inputs. The script will output iperf results to testiperf.txt (for dest) and src*.txt (for ships). YOu may check them to see if the throughput is consistent with the requirements.
 
 Set input of the script in the main function. Replace the IP with either "127.0.0.1" or remote IP (also remember to change the address in floodlightdefault.properties). I have left some working input commented for you reference. The current controller can support up to 30 ships, but it requires high computing power. For laptop or desktop, I would recommend testing at most 10 nodes.
 
+(updated) Modified FDMCalculator and DropMeter classes to support updates of ship demands and SATCOM capacities. Updates are contained in modify*.sh files and are passed to Floodlight through fdm REST API. Check testiperf.txt to verify the changes.
 	
