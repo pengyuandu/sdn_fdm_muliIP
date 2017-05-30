@@ -72,6 +72,8 @@ public interface IFDMCalculatorService extends IFloodlightService {
 	public void deleterule_path(String rule_Key);
 	
 	public void deletePath(String pathstr,Path p);
+	
+	public void updaterule_path(String nodetuple, Float req, Float cap);
 	/*
 	 * Return all rules set by user
 	 */

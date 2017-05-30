@@ -155,8 +155,15 @@ public class FdmReq_CapResource extends ServerResource{
 				// }
     			if(cmd.equals("DELETE")){
 					fds.deleterule_path(rule_key);
+					return "Rule already set in fdm";
 				}
-				return "Rule already set in fdm";
+    			else if(cmd.equals("MODIFY")){
+    				fds.updaterule_path(rule_key, req, cap);
+    				return "Rule updated in fdm";
+    			}
+    			else{
+    				return "Rule whatever";
+    			}
 			}
 			else{
 				if(cmd.equals("ADD"))

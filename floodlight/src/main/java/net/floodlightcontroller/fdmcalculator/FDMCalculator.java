@@ -71,6 +71,7 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 	
 	//Modules that get the path updates
 	protected BlockingQueue<PathUpdate> pathUpdates;
+	protected BlockingQueue<inputUpdate> inputUpdates;
 	
 	
 	
@@ -87,14 +88,22 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 				/*
 				 * test version 1.0 calculate result every 0.5s;
 				 */
-				while(pathUpdates.peek()!=null){
-					PathUpdate up = pathUpdates.poll();
-//					List<NodePortTuple> nslist = up.p.getPath();
-//					Collections.reverse(nslist);
-//					up.p.setPath(nslist);
-					log.info("get path from quqeu: "+up.p.toString());
-					currentInstance.addPathtoTopology(up.p);
-					if(pathUpdates.peek()==null&&calculateFDM())
+				while(pathUpdates.peek()!=null||inputUpdates.peek()!=null){
+					if(pathUpdates.peek()!=null){
+						PathUpdate up = pathUpdates.poll();
+	//					List<NodePortTuple> nslist = up.p.getPath();
+	//					Collections.reverse(nslist);
+	//					up.p.setPath(nslist);
+						log.info("get path from queue: "+up.p.toString());
+						currentInstance.addPathtoTopology(up.p);
+					}
+					if(inputUpdates.peek()!=null){
+						inputUpdate up=inputUpdates.poll();
+						log.info("get input update from queue: "+up.nodetuple);
+						if(currentInstance!=null)
+							currentInstance.updateCusLink(up.nodetuple, up.req, up.cap);
+					}
+					if(pathUpdates.peek()==null&&inputUpdates.peek()==null&&calculateFDM())
 						populatemeter();
 					//log.info("queue size: " + Integer.toString( pathUpdates.size()));
 				}
@@ -128,6 +137,18 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 			this.op = op;
 		}
 	};
+	
+	private class inputUpdate{
+		protected String nodetuple;
+		protected float req;
+		protected float cap;
+		
+		public inputUpdate(String nodetuple, float req, float cap){
+			this.nodetuple=nodetuple;
+			this.req=req;
+			this.cap=cap;
+		}
+	}
 	
 	private class Flowinfo{
 		private IPv4Address src;
@@ -236,6 +257,7 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 		//pathinfo = new HashMap<Path,Flowinfo>();
 		rule = new HashMap<String,List<Float>>();
 		pathUpdates = new LinkedBlockingQueue<PathUpdate>();
+		inputUpdates=new LinkedBlockingQueue<inputUpdate>();
 
 	}
 
@@ -331,6 +353,24 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 		}
 	}
 	
+	@Override
+	public void updaterule_path(String nodetuple, Float req, Float cap){
+		if(this.rule!=null){
+			if(!this.rule.containsKey(nodetuple)){
+				log.info("update rule error");
+				return;
+			}
+			List<Float> list=new ArrayList<Float>();
+			list.add(req);list.add(cap);
+			this.rule.put(nodetuple,list);
+			inputUpdate up=new inputUpdate(nodetuple,req,cap);
+			try{
+				this.inputUpdates.put(up);
+			} catch(InterruptedException e){
+				e.printStackTrace();
+			}	
+		}
+	}
 	
 	public void updatePath(String pathstr, Path p, String op){
 		PathUpdate up = new PathUpdate(pathstr,p,op);
