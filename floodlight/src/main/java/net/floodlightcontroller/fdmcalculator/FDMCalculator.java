@@ -88,6 +88,8 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 				/*
 				 * test version 1.0 calculate result every 0.5s;
 				 */
+				if(inputUpdates.peek()!=null)
+					updateMeter=true;
 				while(pathUpdates.peek()!=null||inputUpdates.peek()!=null){
 					if(pathUpdates.peek()!=null){
 						PathUpdate up = pathUpdates.poll();
@@ -103,8 +105,9 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 						if(currentInstance!=null)
 							currentInstance.updateCusLink(up.nodetuple, up.req, up.cap);
 					}
-					if(pathUpdates.peek()==null&&inputUpdates.peek()==null&&calculateFDM())
-						populatemeter();
+					if(pathUpdates.peek()==null&&inputUpdates.peek()==null&&calculateFDM()){
+						populatemeter(updateMeter);
+					}
 					//log.info("queue size: " + Integer.toString( pathUpdates.size()));
 				}
 				//log.info("1 tick");
@@ -114,6 +117,7 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 				log.error(e.getMessage());
 				
 			}finally{
+				updateMeter=false;
 				newInstanceTask.reschedule(FDMCALCULATE_INTERVAL, TimeUnit.MILLISECONDS);
 			}
 		}
@@ -212,6 +216,7 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 	
 	
 	private boolean fdmactive = true;
+	private boolean updateMeter=false;
 	
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
@@ -476,7 +481,7 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 			currentInstance.addPathstoTopology(add_path);
 	}
 
-	private void populatemeter(){
+	private void populatemeter(boolean UM){
 		
 		DropMeter dm = new DropMeter();
 		for(Map.Entry<String, Set<Flowinfo>> entry:activeuser.entrySet()){
@@ -484,14 +489,19 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 				Path p = fi.path;
 				List<NodePortTuple> nslist = p.getPath();
 				//Collections.reverse(nslist);
-				log.info("in populatemeter : "+ fi.toString());
+				
+				//log.info("in populatemeter : "+ fi.toString());
+				
 				IOFSwitch  currentSwitch = switchService.getSwitch(nslist.get(1).getNodeId());
 	            OFPort currentPort = nslist.get(1).getPortId();         
 	            IOFSwitch  nextSwitch = switchService.getSwitch((nslist.get(2).getNodeId()));
 	            OFPort nextPort = nslist.get(2).getPortId();
 	            Float rate = getFlowBW(nslist.get(1).getNodeId(),currentPort,nslist.get(2).getNodeId(),nextPort);
-				dm.createMeter(currentSwitch, currentPort,nextSwitch,nextPort,rate);
-				log.info("bind mater "+ Float.toString(rate) + "on " +
+	            if(!UM)
+	            	dm.createMeter(currentSwitch, currentPort,nextSwitch,nextPort,rate);
+	            else
+	            	dm.updateMeterwithFlow(currentSwitch, rate, nslist.get(0).getPortId(),fi.getdst(),fi.gettcpdstport(), fi.getsrc(), currentSwitch, fi.gettcpsrcport(), new Path(p.getId(),nslist));
+				log.info("bind mater "+ Float.toString(rate) + " on " +
 								" SrcID: "+currentSwitch.toString()+
 								" SrcPort:"+currentPort.toString()+
 								" NextID:"+ nextSwitch.toString()+

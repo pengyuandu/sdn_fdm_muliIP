@@ -2,6 +2,7 @@ package net.floodlightcontroller.dropmeter;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ public class DropMeter{
 	
 		protected static int meterid = 1; 
 	    //protected IFDMCalculatorService fdmservice;
+		protected static Map<String,Integer> FlowMeterMapping= new HashMap<String,Integer>();
 	    
 	    protected static final Logger log = LoggerFactory.getLogger(DropMeter.class);
 		public DropMeter(FloodlightModuleContext context){
@@ -107,11 +109,24 @@ public class DropMeter{
 	    public void bindMeterWithFlow(OFPort inPort,IPv4Address dstIp, TransportPort dstPort, IPv4Address srcIp, IOFSwitch sw, TransportPort srcPort, Path path) {
 	    	Match.Builder mb = sw.getOFFactory().buildMatch();
 	    	
-	    	log.info("bindMeter[ inport:" + inPort.toString()+
+	    	String Flow="[ inport:" + inPort.toString()+
 	    			" tcpdstPort:" + dstPort.toString()+
 	    			" tcpip:" + srcIp.toString() +
 	    			" sw:" + sw.toString() +
-	    			" tcpsrcPort:" + srcPort.toString() + ']');
+	    			" tcpsrcPort:" + srcPort.toString() + ']';
+	    	
+	    	log.info("bindMeter "+Flow);
+	    	Integer meterID;
+	    	if(FlowMeterMapping.containsKey(Flow)){
+	    		meterID=new Integer(FlowMeterMapping.get(Flow));
+	    	}
+	    	else{
+	    		meterID=new Integer(meterid);
+	    		FlowMeterMapping.put(Flow, meterid);
+	    		meterid++;
+	    	}
+	    	
+	    	
 	    	mb.setExact(MatchField.IN_PORT, inPort)
 	    	.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 	    	.setExact(MatchField.IPV4_SRC, srcIp)
@@ -126,7 +141,7 @@ public class DropMeter{
             ArrayList<OFInstruction> instructions = new ArrayList<OFInstruction>();
             ArrayList<OFAction> actionList = new ArrayList<OFAction>();
             OFInstructionMeter meter = my13Factory.instructions().buildMeter()
-                .setMeterId(meterid)
+                .setMeterId(meterID)
                 .build();
             OFActionOutput output = my13Factory.actions().buildOutput()
                 .setPort(path.getPath().get(1).getPortId())
@@ -138,7 +153,6 @@ public class DropMeter{
                 .build();
             instructions.add(applyActions);
             instructions.add(meter);
-            meterid++;
 
             OFFlowModify flowmod = my13Factory.buildFlowModify()
             		.setMatch(mb.build())
@@ -152,6 +166,40 @@ public class DropMeter{
 //                    .setPriority(32768)
 //                    .build();
 //                sw.write(flowAdd);
+	    }
+	    
+	    public void updateMeterwithFlow(IOFSwitch currentSwitch, Float rate, OFPort inPort, IPv4Address dstIp, TransportPort dstPort, IPv4Address srcIp, IOFSwitch sw, TransportPort srcPort, Path path){
+	    	String Flow="[ inport:" + inPort.toString()+
+	    			" tcpdstPort:" + dstPort.toString()+
+	    			" tcpip:" + srcIp.toString() +
+	    			" sw:" + sw.toString() +
+	    			" tcpsrcPort:" + srcPort.toString() + ']';
+	    	Integer meterID=FlowMeterMapping.get(Flow);
+	    	if(meterID==null){
+	    		log.info("no flow meter mapping");
+	    		return;
+	    	}
+	    	
+	    	log.info("******update meter for Fow: "+Flow);
+	    	
+	    	OFFactory meterFactory = OFFactories.getFactory(OFVersion.OF_13);
+            OFMeterMod.Builder meterModBuilder = meterFactory.buildMeterMod()
+                .setMeterId(meterID).setCommand(OFMeterModCommand.MODIFY);
+            
+            OFMeterBandDrop.Builder bandBuilder = meterFactory.meterBands().buildDrop()
+                .setRate(Math.round(rate*1000));
+            OFMeterBand band = bandBuilder.build();
+            List<OFMeterBand> bands = new ArrayList<OFMeterBand>();
+            bands.add(band);
+  
+            Set<OFMeterFlags> flags2 = new HashSet<>();
+            flags2.add(OFMeterFlags.KBPS);
+            meterModBuilder.setMeters(bands)
+                .setFlags(flags2)
+                .build();
+                
+
+            currentSwitch.write(meterModBuilder.build());
 	    }
 	    
 }
