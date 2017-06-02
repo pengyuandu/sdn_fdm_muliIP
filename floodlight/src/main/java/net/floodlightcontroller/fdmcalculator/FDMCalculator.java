@@ -497,16 +497,21 @@ public class FDMCalculator implements IFDMCalculatorService, ITopologyListener, 
 	            IOFSwitch  nextSwitch = switchService.getSwitch((nslist.get(2).getNodeId()));
 	            OFPort nextPort = nslist.get(2).getPortId();
 	            Float rate = getFlowBW(nslist.get(1).getNodeId(),currentPort,nslist.get(2).getNodeId(),nextPort);
+	            
+            	dm.createAndBindMeter(currentSwitch, rate, nslist.get(0).getPortId(),fi.getdst(),fi.gettcpdstport(), fi.getsrc(), currentSwitch, fi.gettcpsrcport(), new Path(p.getId(),nslist));
+
+	            /*
 	            if(!UM)
 	            	dm.createMeter(currentSwitch, currentPort,nextSwitch,nextPort,rate);
-	            else
+	            else{
 	            	dm.updateMeterwithFlow(currentSwitch, rate, nslist.get(0).getPortId(),fi.getdst(),fi.gettcpdstport(), fi.getsrc(), currentSwitch, fi.gettcpsrcport(), new Path(p.getId(),nslist));
-				log.info("bind mater "+ Float.toString(rate) + " on " +
+	            	log.info("bind mater "+ Float.toString(rate) + " on " +
 								" SrcID: "+currentSwitch.toString()+
 								" SrcPort:"+currentPort.toString()+
 								" NextID:"+ nextSwitch.toString()+
 								" NextPort:"+nextPort.toString());
-				dm.bindMeterWithFlow(nslist.get(0).getPortId(),fi.getdst(),fi.gettcpdstport(), fi.getsrc(), currentSwitch, fi.gettcpsrcport(), new Path(p.getId(),nslist));
+	            	dm.bindMeterWithFlow(nslist.get(0).getPortId(),fi.getdst(),fi.gettcpdstport(), fi.getsrc(), currentSwitch, fi.gettcpsrcport(), new Path(p.getId(),nslist));
+	            }  */ 
 			}
 		}
 	}

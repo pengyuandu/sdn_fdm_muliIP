@@ -101,6 +101,84 @@ public class DropMeter{
 	    	
 	    }
 	    
+	    public void createAndBindMeter(IOFSwitch currentSwitch, Float rate, OFPort inPort, IPv4Address dstIp, TransportPort dstPort, IPv4Address srcIp, IOFSwitch sw, TransportPort srcPort, Path path){
+	    	String Flow="[ inport:" + inPort.toString()+
+	    			" tcpdstPort:" + dstPort.toString()+
+	    			" tcpip:" + srcIp.toString() +
+	    			" sw:" + sw.toString() +
+	    			" tcpsrcPort:" + srcPort.toString() + ']';
+	    	
+	    	Integer meterID;
+	    	OFMeterModCommand metermodcmd;
+	    	
+	    	if(FlowMeterMapping.containsKey(Flow)){
+	    		meterID=new Integer(FlowMeterMapping.get(Flow));
+	    		metermodcmd=OFMeterModCommand.MODIFY;
+	    		log.info("Modify existing meter: "+meterID+" for flow: "+Flow);
+	    	}
+	    	else{
+	    		meterID=new Integer(meterid);
+	    		FlowMeterMapping.put(Flow, meterid);
+	    		meterid++;
+	    		metermodcmd=OFMeterModCommand.ADD;
+	    		log.info("ADD new meter: "+meterID+" for Flow: "+Flow);
+	    	}
+	    	
+	    	OFFactory meterFactory = OFFactories.getFactory(OFVersion.OF_13);
+            OFMeterMod.Builder meterModBuilder = meterFactory.buildMeterMod()
+                .setMeterId(meterID).setCommand(metermodcmd);
+            
+            OFMeterBandDrop.Builder bandBuilder = meterFactory.meterBands().buildDrop()
+                .setRate(Math.round(rate*1000));
+            OFMeterBand band = bandBuilder.build();
+            List<OFMeterBand> bands = new ArrayList<OFMeterBand>();
+            bands.add(band);
+  
+            Set<OFMeterFlags> flags2 = new HashSet<>();
+            flags2.add(OFMeterFlags.KBPS);
+            meterModBuilder.setMeters(bands)
+                .setFlags(flags2)
+                .build();
+                
+
+            currentSwitch.write(meterModBuilder.build());
+            
+            //bind meter with flow
+	    	Match.Builder mb = sw.getOFFactory().buildMatch();
+	    	mb.setExact(MatchField.IN_PORT, inPort)
+	    	.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+	    	.setExact(MatchField.IPV4_SRC, srcIp)
+	    	.setExact(MatchField.IPV4_DST, dstIp)
+    		.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+            .setExact(MatchField.TCP_SRC, srcPort)
+            .setExact(MatchField.TCP_DST, dstPort);
+
+
+
+            OFFactory my13Factory = OFFactories.getFactory(OFVersion.OF_13);
+            ArrayList<OFInstruction> instructions = new ArrayList<OFInstruction>();
+            ArrayList<OFAction> actionList = new ArrayList<OFAction>();
+            OFInstructionMeter meter = my13Factory.instructions().buildMeter()
+                .setMeterId(meterID)
+                .build();
+            OFActionOutput output = my13Factory.actions().buildOutput()
+                .setPort(path.getPath().get(1).getPortId())
+                .build();
+
+            actionList.add(output);
+            OFInstructionApplyActions applyActions = my13Factory.instructions().buildApplyActions()
+                .setActions(actionList)
+                .build();
+            instructions.add(applyActions);
+            instructions.add(meter);
+
+            OFFlowModify flowmod = my13Factory.buildFlowModify()
+            		.setMatch(mb.build())
+            		.setInstructions(instructions)
+            		.build();
+            sw.write(flowmod);
+	    }
+	    
 	    public void addpathtoFDMmodule(Path p){
 	    	//this.fdmservice.addPath(p);
 	    }
@@ -180,7 +258,7 @@ public class DropMeter{
 	    		return;
 	    	}
 	    	
-	    	log.info("******update meter for Fow: "+Flow);
+	    	log.info("******update meter for Flow: "+Flow);
 	    	
 	    	OFFactory meterFactory = OFFactories.getFactory(OFVersion.OF_13);
             OFMeterMod.Builder meterModBuilder = meterFactory.buildMeterMod()
